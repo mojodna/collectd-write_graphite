@@ -91,7 +91,7 @@ struct wg_callback
     char     send_buf[WG_SEND_BUF_SIZE];
     size_t   send_buf_free;
     size_t   send_buf_fill;
-    cdtime_t send_buf_init_time;
+    time_t send_buf_init_time;
 
     pthread_mutex_t send_lock;
 };
@@ -105,7 +105,7 @@ static void wg_reset_buffer (struct wg_callback *cb)
     memset (cb->send_buf, 0, sizeof (cb->send_buf));
     cb->send_buf_free = sizeof (cb->send_buf);
     cb->send_buf_fill = 0;
-    cb->send_buf_init_time = cdtime ();
+    cb->send_buf_init_time = time (NULL);
 }
 
 static int wg_send_buffer (struct wg_callback *cb)
@@ -130,7 +130,7 @@ static int wg_send_buffer (struct wg_callback *cb)
 }
 
 /* NOTE: You must hold cb->send_lock when calling this function! */
-static int wg_flush_nolock (cdtime_t timeout, struct wg_callback *cb)
+static int wg_flush_nolock (int timeout, struct wg_callback *cb)
 {
     int status;
 
@@ -142,16 +142,16 @@ static int wg_flush_nolock (cdtime_t timeout, struct wg_callback *cb)
     /* timeout == 0  => flush unconditionally */
     if (timeout > 0)
     {
-        cdtime_t now;
+        time_t now;
 
-        now = cdtime ();
+        now = time (NULL);
         if ((cb->send_buf_init_time + timeout) > now)
             return (0);
     }
 
     if (cb->send_buf_fill <= 0)
     {
-        cb->send_buf_init_time = cdtime ();
+        cb->send_buf_init_time = time (NULL);
         return (0);
     }
 
@@ -253,7 +253,7 @@ static void wg_callback_free (void *data)
     sfree(cb);
 }
 
-static int wg_flush (cdtime_t timeout,
+static int wg_flush (int timeout,
         const char *identifier __attribute__((unused)),
         user_data_t *user_data)
 {
@@ -437,7 +437,7 @@ static int wg_format_name (char *ret, int ret_len,
 }
 
 static int wg_send_message (const char* key, const char* value,
-        cdtime_t time, struct wg_callback *cb)
+        time_t time, struct wg_callback *cb)
 {
     int status;
     size_t message_len;
@@ -446,8 +446,7 @@ static int wg_send_message (const char* key, const char* value,
     message_len = (size_t) ssnprintf (message, sizeof (message),
             "%s %s %u\r\n",
             key,
-            value,
-            (unsigned int) CDTIME_T_TO_TIME_T (time));
+            value, time);
     if (message_len >= sizeof (message)) {
         ERROR ("write_graphite plugin: message buffer too small: "
                 "Need %zu bytes.", message_len + 1);
@@ -632,7 +631,7 @@ static int wg_config_carbon (oconfig_item_t *ci)
         if (strcasecmp ("Host", child->key) == 0)
             cf_util_get_string (child, &cb->node);
         else if (strcasecmp ("Port", child->key) == 0)
-            cf_util_get_service (child, &cb->service);
+            cf_util_get_string (child, &cb->service);
         else if (strcasecmp ("Prefix", child->key) == 0)
             cf_util_get_string (child, &cb->prefix);
         else if (strcasecmp ("Postfix", child->key) == 0)
