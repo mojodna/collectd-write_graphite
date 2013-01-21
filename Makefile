@@ -11,6 +11,7 @@ CFLAGS?=-DNDEBUG -O3
 all: .INIT write_graphite.la
 
 install: all
+	mkdir -p $(COLLECTD_PREFIX)/lib/collectd
 	$(LIBTOOL) --mode=install /usr/bin/install -c write_graphite.la \
 		$(COLLECTD_PREFIX)/lib/collectd
 	$(LIBTOOL) --finish \
